@@ -1244,7 +1244,10 @@ out:
 		if (s->gpio_used)
 			WARN_ON(gpiochip_remove(&s->gpio));
 #endif
-			mutex_destroy(&s->mutex);
+		for (i = 0; i < devtype->nr; i++)
+			uart_remove_one_port(&max310x_uart, &s->p[i].port);
+
+		mutex_destroy(&s->mutex);
 	}
 
 	return ret;
