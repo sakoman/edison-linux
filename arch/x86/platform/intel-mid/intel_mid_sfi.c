@@ -49,6 +49,15 @@
 #define MAX_SCU_SPI	24
 #define MAX_SCU_I2C	24
 
+static struct sfi_device_table_entry max310x_entry = {
+	.type = SFI_DEV_TYPE_SPI,
+	.host_num = 5, /* bus number */
+	.addr = 1, /* cs */
+	.irq = 47, /* actual irq  to be filled in later */
+	.max_freq = 20000000,
+	.name = "max14830",
+};
+
 static struct platform_device *ipc_devs[MAX_IPCDEVS];
 static struct spi_board_info *spi_devs[MAX_SCU_SPI];
 static struct i2c_board_info *i2c_devs[MAX_SCU_I2C];
@@ -537,6 +546,14 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 			}
 		}
 	}
+
+	/* hack in max310 sfi entry */
+	dev = get_device_id(max310x_entry.type, max310x_entry.name);
+
+	if ((dev == NULL) || (dev->get_platform_data == NULL))
+		pr_err("%s: max310x sfi hack failed \n", __func__);
+
+	sfi_handle_spi_dev(&max310x_entry, dev);
 
 	return 0;
 }
