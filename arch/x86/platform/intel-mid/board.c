@@ -83,7 +83,6 @@
  */
 #include "device_libs/platform_max3111.h"
 #include "device_libs/platform_max310x.h"
-#include "device_libs/platform_ads7955.h"
 
 /* WIFI devices */
 #include "device_libs/platform_wl12xx.h"
@@ -111,7 +110,6 @@ struct devs_id __initconst device_ids[] = {
 
 	/* SPI devices */
 	{"max14830", SFI_DEV_TYPE_SPI, 0, &max310x_platform_data, NULL},
-	{"ads7955", SFI_DEV_TYPE_SPI, 0, &ads7955_platform_data, NULL},
 	{"bma023", SFI_DEV_TYPE_I2C, 1, &no_platform_data, NULL},
 	{"pmic_gpio", SFI_DEV_TYPE_SPI, 1, &pmic_gpio_platform_data, NULL},
 	{"pmic_gpio", SFI_DEV_TYPE_IPC, 1, &pmic_gpio_platform_data,
