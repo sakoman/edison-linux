@@ -271,7 +271,7 @@
 
 /* MAX14830 specific */
 #define MAX14830_BRGCFG_CLKDIS_BIT	(1 << 6) /* Clock Disable */
-#define MAX14830_REV_ID			(0xb0)
+#define MAX14830_REV_ID			(0xb4)
 
 struct max310x_devtype {
 	char	name[9];
