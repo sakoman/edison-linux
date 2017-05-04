@@ -49,11 +49,20 @@
 #define MAX_SCU_SPI	24
 #define MAX_SCU_I2C	24
 
-static struct sfi_device_table_entry max310x_entry = {
+static struct sfi_device_table_entry max310x_cs0_entry = {
+	.type = SFI_DEV_TYPE_SPI,
+	.host_num = 5, /* bus number */
+	.addr = 0, /* cs */
+	.irq = 45, /* actual irq to be filled in later */
+	.max_freq = 20000000,
+	.name = "max14830",
+};
+
+static struct sfi_device_table_entry max310x_cs1_entry = {
 	.type = SFI_DEV_TYPE_SPI,
 	.host_num = 5, /* bus number */
 	.addr = 1, /* cs */
-	.irq = 47, /* actual irq  to be filled in later */
+	.irq = 47, /* actual irq to be filled in later */
 	.max_freq = 20000000,
 	.name = "max14830",
 };
@@ -547,13 +556,23 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 		}
 	}
 
-	/* hack in max310 sfi entry */
-	dev = get_device_id(max310x_entry.type, max310x_entry.name);
+	/* hack in max310 sfi entries */
+
+	dev = get_device_id(max310x_cs0_entry.type, max310x_cs0_entry.name);
 
 	if ((dev == NULL) || (dev->get_platform_data == NULL))
-		pr_err("%s: max310x sfi hack failed \n", __func__);
+		pr_err("%s: max310x cs0 sfi hack failed \n", __func__);
 
-	sfi_handle_spi_dev(&max310x_entry, dev);
+	sfi_handle_spi_dev(&max310x_cs0_entry, dev);
+
+	dev = get_device_id(max310x_cs1_entry.type, max310x_cs1_entry.name);
+
+	if ((dev == NULL) || (dev->get_platform_data == NULL))
+		pr_err("%s: max310x cs1 sfi hack failed \n", __func__);
+
+	sfi_handle_spi_dev(&max310x_cs1_entry, dev);
+
+	/* end hack */
 
 	return 0;
 }
