@@ -1209,38 +1209,39 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 		dev_info(dev, "GPIO support not enabled\n");
 #endif
 
-	if (gpio_is_valid(47)) {
+	/* add hack to convert gpio number to system irq number using gpio_to_irq */
+	if (gpio_is_valid(irq)) {
 		/* Request gpio */
-		err = gpio_request(47, "max301x irq1");
+		err = gpio_request(irq, "max301x irq");
 		if (err < 0) {
 			pr_err("%s: Unable to request GPIO:%d, err:%d\n",
-					__func__, 47, err);
+					__func__, irq, err);
 			goto out;
 		}
 
 		/* set gpio direction */
-		err = gpio_direction_input(47);
+		err = gpio_direction_input(irq);
 		if (err < 0) {
 			pr_err("%s: Unable to set GPIO:%d direction, err:%d\n",
-			 __func__, 47, err);
+			 __func__, irq, err);
 			goto out;
 		}
 
 		/* convert gpio to irq */
-		irq = gpio_to_irq(47);
+		irq = gpio_to_irq(irq);
 		if (irq < 0) {
-			pr_err("%s: Error gpio_to_irq:%d->%d\n", __func__,
-					47,
+			pr_err("%s: Error gpio_to_irq:%d\n", __func__,
 					irq);
 			goto out;
 		}
-		pr_err("%s: gpio_to_irq result for:%d->%d\n", __func__,
-				47,
+		pr_err("%s: gpio_to_irq result:%d\n", __func__,
 				irq);
 	} else
-		dev_err(dev, "GPIO47 not valid\n");
+		dev_err(dev, "%s: GPIO%d not valid\n",__func__, irq);
 
 out:
+	/* end hack */
+
 	/* Setup interrupt */
 	ret = devm_request_threaded_irq(dev, irq, NULL, max310x_ist,
 					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
