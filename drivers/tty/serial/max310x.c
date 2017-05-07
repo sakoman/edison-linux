@@ -1113,8 +1113,6 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 	s->devtype = devtype;
 	dev_set_drvdata(dev, s);
 
-	mutex_init(&s->mutex);
-
 	/* Board specific configure */
 	if (s->pdata->init)
 		s->pdata->init();
@@ -1123,6 +1121,8 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 	ret = devtype->detect(dev);
 	if (ret)
 		return ret;
+
+	mutex_init(&s->mutex);
 
 	for (i = 0; i < devtype->nr; i++) {
 		unsigned int offs = i << 5;
@@ -1219,6 +1219,7 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 		if (s->gpio_used)
 			WARN_ON(gpiochip_remove(&s->gpio));
 #endif
+			mutex_destroy(&s->mutex);
 	}
 
 	return ret;
@@ -1240,6 +1241,7 @@ static int max310x_remove(struct device *dev)
 		s->devtype->power(&s->p[i].port, 0);
 	}
 
+	mutex_destroy(&s->mutex);
 	uart_unregister_driver(&s->uart);
 
 #ifdef CONFIG_GPIOLIB
