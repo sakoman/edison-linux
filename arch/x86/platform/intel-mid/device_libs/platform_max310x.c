@@ -68,13 +68,11 @@ static struct max310x_pdata max310x_cs1_pdata = {
 
 static void spi_cs0_control(u32 command)
 {
-	pr_err("%s: CS=%d\n", __func__, command);
 	gpio_set_value(spi_cs0_gpio, (command != 0) ? 1 : 0);
 }
 
 static void spi_cs1_control(u32 command)
 {
-	pr_err("%s: CS=%d\n", __func__, command);
 	gpio_set_value(spi_cs1_gpio, (command != 0) ? 1 : 0);
 }
 
@@ -105,8 +103,6 @@ static void spi_platform_pinmux(void)
 static int max310x_cs0_platform_init(struct max310x_pdata *platform_data)
 {
 	int err = 0;
-
-	pr_err("%s: Entry\n", __func__);
 
 	if (IS_ERR(platform_data)) {
 		err = PTR_ERR(platform_data);
@@ -139,15 +135,12 @@ static int max310x_cs0_platform_init(struct max310x_pdata *platform_data)
 	}
 
 out:
-	pr_err("%s Exit\n", __func__);
 	return err;
 }
 
 static int max310x_cs1_platform_init(struct max310x_pdata *platform_data)
 {
 	int err = 0;
-
-	pr_err("%s: Entry\n", __func__);
 
 	if (IS_ERR(platform_data)) {
 		err = PTR_ERR(platform_data);
@@ -180,7 +173,6 @@ static int max310x_cs1_platform_init(struct max310x_pdata *platform_data)
 	}
 
 out:
-	pr_err("%s Exit\n", __func__);
 	return err;
 }
 
