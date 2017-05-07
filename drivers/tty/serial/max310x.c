@@ -30,7 +30,7 @@
 #define MAX310X_NAME			"max310x"
 #define MAX310X_MAJOR			204
 #define MAX310X_MINOR			209
-#define MAX310X_UART_NR			4
+#define MAX310X_UART_NRMAX		16
 
 /* MAX310X register definitions */
 #define MAX310X_RHR_REG			(0x00) /* RX FIFO */
@@ -301,8 +301,10 @@ static struct uart_driver max310x_uart = {
 	.dev_name	= "ttyMAX",
 	.major		= MAX310X_MAJOR,
 	.minor		= MAX310X_MINOR,
-	.nr		= MAX310X_UART_NR,
+	.nr		= MAX310X_UART_NRMAX,
 };
+
+static DECLARE_BITMAP(max310x_lines, MAX310X_UART_NRMAX);
 
 static u8 max310x_port_read(struct uart_port *port, u8 reg)
 {
@@ -621,9 +623,7 @@ static void max310x_handle_rx(struct uart_port *port, unsigned int rxlen)
 	unsigned int sts, ch, flag;
 
 	if (unlikely(rxlen >= port->fifosize)) {
-		dev_warn_ratelimited(port->dev,
-				     "Port %i: Possible RX FIFO overrun\n",
-				     port->line);
+		dev_warn_ratelimited(port->dev,"Possible RX FIFO overrun\n");
 		port->icount.buf_overrun++;
 		/* Ensure sanity of RX level */
 		rxlen = port->fifosize;
@@ -1152,8 +1152,16 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 	dev_dbg(dev, "Reference clock set to %i Hz\n", uartclk);
 
 	for (i = 0; i < devtype->nr; i++) {
+		unsigned int line;
+
+		line = find_first_zero_bit(max310x_lines, MAX310X_UART_NRMAX);
+		if (line == MAX310X_UART_NRMAX) {
+			ret = -ERANGE;
+			goto out_uart;
+		}
+
 		/* Initialize port data */
-		s->p[i].port.line	= i;
+		s->p[i].port.line	= line;
 		s->p[i].port.dev	= dev;
 		s->p[i].port.irq	= irq;
 		s->p[i].port.type	= PORT_MAX310X;
@@ -1176,8 +1184,15 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 		INIT_WORK(&s->p[i].tx_work, max310x_wq_proc);
 		/* Initialize queue for changing mode */
 		INIT_WORK(&s->p[i].md_work, max310x_md_proc);
+
 		/* Register port */
-		uart_add_one_port(&max310x_uart, &s->p[i].port);
+		ret = uart_add_one_port(&max310x_uart, &s->p[i].port);
+		if (ret) {
+			s->p[i].port.dev = NULL;
+			goto out_uart;
+		}
+		set_bit(line, max310x_lines);
+
 		/* Go to suspend mode */
 		devtype->power(&s->p[i].port, 0);
 	}
@@ -1238,17 +1253,23 @@ out:
 	ret = devm_request_threaded_irq(dev, irq, NULL, max310x_ist,
 					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 					dev_name(dev), s);
-	if (ret) {
-		dev_err(dev, "Unable to reguest IRQ %i\n", irq);
-#ifdef CONFIG_GPIOLIB
-		if (s->gpio_used)
-			WARN_ON(gpiochip_remove(&s->gpio));
-#endif
-		for (i = 0; i < devtype->nr; i++)
-			uart_remove_one_port(&max310x_uart, &s->p[i].port);
+	if (!ret)
+		return 0;
 
-		mutex_destroy(&s->mutex);
+	dev_err(dev, "Unable to reguest IRQ %i\n", irq);
+#ifdef CONFIG_GPIOLIB
+	if (s->gpio_used)
+		WARN_ON(gpiochip_remove(&s->gpio));
+#endif
+out_uart:
+	for (i = 0; i < devtype->nr; i++) {
+		if (s->p[i].port.dev) {
+			uart_remove_one_port(&max310x_uart, &s->p[i].port);
+			clear_bit(s->p[i].port.line, max310x_lines);
+		}
 	}
+
+	mutex_destroy(&s->mutex);
 
 	return ret;
 
@@ -1266,6 +1287,7 @@ static int max310x_remove(struct device *dev)
 		cancel_work_sync(&s->p[i].tx_work);
 		cancel_work_sync(&s->p[i].md_work);
 		uart_remove_one_port(&max310x_uart, &s->p[i].port);
+		clear_bit(s->p[i].port.line, max310x_lines);
 		s->devtype->power(&s->p[i].port, 0);
 	}
 
@@ -1342,6 +1364,8 @@ static struct spi_driver max310x_spi_driver = {
 static int __init max310x_uart_init(void)
 {
 	int ret;
+
+	bitmap_zero(max310x_lines, MAX310X_UART_NRMAX);
 
 	ret = uart_register_driver(&max310x_uart);
 	if (ret)
