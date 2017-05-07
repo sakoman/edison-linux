@@ -1,7 +1,7 @@
 /*
  *  Maxim (Dallas) MAX3107/8/9, MAX14830 serial driver
  *
- *  Copyright (C) 2012-2014 Alexander Shiyan <shc_work@mail.ru>
+ *  Copyright (C) 2012-2016 Alexander Shiyan <shc_work@mail.ru>
  *
  *  Based on max3100.c, by Christian Pellegrin <chripell@evolware.org>
  *  Based on max3110.c, by Feng Tang <feng.tang@intel.com>
@@ -30,6 +30,7 @@
 #define MAX310X_NAME			"max310x"
 #define MAX310X_MAJOR			204
 #define MAX310X_MINOR			209
+#define MAX310X_UART_NR			4
 
 /* MAX310X register definitions */
 #define MAX310X_RHR_REG			(0x00) /* RX FIFO */
@@ -287,7 +288,6 @@ struct max310x_one {
 };
 
 struct max310x_port {
-	struct uart_driver	uart;
 	struct max310x_devtype	*devtype;
 	struct regmap		*regmap;
 	struct mutex		mutex;
@@ -297,6 +297,15 @@ struct max310x_port {
 	struct gpio_chip	gpio;
 #endif
 	struct max310x_one	p[0];
+};
+
+static struct uart_driver max310x_uart = {
+	.owner		= THIS_MODULE,
+	.driver_name	= MAX310X_NAME,
+	.dev_name	= "ttyMAX",
+	.major		= MAX310X_MAJOR,
+	.minor		= MAX310X_MINOR,
+	.nr		= MAX310X_UART_NR,
 };
 
 static u8 max310x_port_read(struct uart_port *port, u8 reg)
@@ -737,13 +746,13 @@ static irqreturn_t max310x_ist(int irq, void *dev_id)
 {
 	struct max310x_port *s = (struct max310x_port *)dev_id;
 
-	if (s->uart.nr > 1) {
+	if (s->devtype->nr > 1) {
 		do {
 			unsigned int val = ~0;
 
 			WARN_ON_ONCE(regmap_read(s->regmap,
 						 MAX310X_GLOBALIRQ_REG, &val));
-			val = ((1 << s->uart.nr) - 1) & ~val;
+			val = ((1 << s->devtype->nr) - 1) & ~val;
 			if (!val)
 				break;
 			max310x_port_irq(s, fls(val) - 1);
@@ -1007,8 +1016,8 @@ static int __maybe_unused max310x_suspend(struct spi_device *spi,
 	struct max310x_port *s = dev_get_drvdata(&spi->dev);
 	int i;
 
-	for (i = 0; i < s->uart.nr; i++) {
-		uart_suspend_port(&s->uart, &s->p[i].port);
+	for (i = 0; i < s->devtype->nr; i++) {
+		uart_suspend_port(&max310x_uart, &s->p[i].port);
 		s->devtype->power(&s->p[i].port, 0);
 	}
 
@@ -1020,9 +1029,9 @@ static int __maybe_unused max310x_resume(struct spi_device *spi)
 	struct max310x_port *s = dev_get_drvdata(&spi->dev);
 	int i;
 
-	for (i = 0; i < s->uart.nr; i++) {
+	for (i = 0; i < s->devtype->nr; i++) {
 		s->devtype->power(&s->p[i].port, 1);
-		uart_resume_port(&s->uart, &s->p[i].port);
+		uart_resume_port(&max310x_uart, &s->p[i].port);
 	}
 
 	return 0;
@@ -1147,18 +1156,6 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 	uartclk = max310x_set_ref_clk(s);
 	dev_dbg(dev, "Reference clock set to %i Hz\n", uartclk);
 
-	/* Register UART driver */
-	s->uart.owner		= THIS_MODULE;
-	s->uart.dev_name	= "ttyMAX";
-	s->uart.major		= MAX310X_MAJOR;
-	s->uart.minor		= MAX310X_MINOR;
-	s->uart.nr		= devtype->nr;
-	ret = uart_register_driver(&s->uart);
-	if (ret) {
-		dev_err(dev, "Registering UART driver failed\n");
-		return ret;
-	}
-
 	for (i = 0; i < devtype->nr; i++) {
 		/* Initialize port data */
 		s->p[i].port.line	= i;
@@ -1185,7 +1182,7 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 		/* Initialize queue for changing mode */
 		INIT_WORK(&s->p[i].md_work, max310x_md_proc);
 		/* Register port */
-		uart_add_one_port(&s->uart, &s->p[i].port);
+		uart_add_one_port(&max310x_uart, &s->p[i].port);
 		/* Go to suspend mode */
 		devtype->power(&s->p[i].port, 0);
 	}
@@ -1267,16 +1264,14 @@ static int max310x_remove(struct device *dev)
 	struct max310x_port *s = dev_get_drvdata(dev);
 	int i, ret = 0;
 
-	for (i = 0; i < s->uart.nr; i++) {
+	for (i = 0; i < s->devtype->nr; i++) {
 		cancel_work_sync(&s->p[i].tx_work);
 		cancel_work_sync(&s->p[i].md_work);
-		uart_remove_one_port(&s->uart, &s->p[i].port);
+		uart_remove_one_port(&max310x_uart, &s->p[i].port);
 		s->devtype->power(&s->p[i].port, 0);
 	}
 
 	mutex_destroy(&s->mutex);
-	uart_unregister_driver(&s->uart);
-
 #ifdef CONFIG_GPIOLIB
 	if (s->gpio_used)
 		ret = gpiochip_remove(&s->gpio);
@@ -1334,7 +1329,7 @@ static const struct spi_device_id max310x_id_table[] = {
 };
 MODULE_DEVICE_TABLE(spi, max310x_id_table);
 
-static struct spi_driver max310x_uart_driver = {
+static struct spi_driver max310x_spi_driver = {
 	.driver = {
 		.name	= MAX310X_NAME,
 		.owner	= THIS_MODULE,
@@ -1344,8 +1339,33 @@ static struct spi_driver max310x_uart_driver = {
 	.remove		= max310x_spi_remove,
 	.id_table	= max310x_id_table,
 };
-module_spi_driver(max310x_uart_driver);
 #endif
+
+static int __init max310x_uart_init(void)
+{
+	int ret;
+
+	ret = uart_register_driver(&max310x_uart);
+	if (ret)
+		return ret;
+
+#ifdef CONFIG_SPI_MASTER
+	spi_register_driver(&max310x_spi_driver);
+#endif
+
+	return 0;
+}
+module_init(max310x_uart_init);
+
+static void __exit max310x_uart_exit(void)
+{
+#ifdef CONFIG_SPI_MASTER
+	spi_unregister_driver(&max310x_spi_driver);
+#endif
+
+	uart_unregister_driver(&max310x_uart);
+}
+module_exit(max310x_uart_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Alexander Shiyan <shc_work@mail.ru>");
