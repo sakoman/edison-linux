@@ -52,7 +52,6 @@ static struct intel_mid_ssp_spi_chip chip1 = {
 
 static struct max310x_pdata max310x_cs0_pdata = {
 	.driver_flags	= MAX310X_EXT_CLK,
-	.uart_flags[0]	= MAX310X_ECHO_SUPRESS | MAX310X_AUTO_DIR_CTRL,
 	.frequency	= 19200000,
 	.gpio_base	= -1,
 	.init		= max310x_cs0_platform_init,
@@ -60,7 +59,6 @@ static struct max310x_pdata max310x_cs0_pdata = {
 
 static struct max310x_pdata max310x_cs1_pdata = {
 	.driver_flags	= MAX310X_EXT_CLK,
-	.uart_flags[0]	= MAX310X_ECHO_SUPRESS | MAX310X_AUTO_DIR_CTRL,
 	.frequency	= 19200000,
 	.gpio_base	= -1,
 	.init		= max310x_cs1_platform_init,
