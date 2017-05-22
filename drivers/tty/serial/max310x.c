@@ -787,27 +787,66 @@ static unsigned int max310x_tx_empty(struct uart_port *port)
 	return ((sts & MAX310X_IRQ_TXEMPTY_BIT) && !lvl) ? TIOCSER_TEMT : 0;
 }
 
+#define DTR	480
+#define DSR	481
+#define DCD	482
+#define RI	483
+
 static unsigned int max310x_get_mctrl(struct uart_port *port)
 {
-	/* DCD and DSR are not wired and CTS/RTS is handled automatically
-	 * so just indicate DSR and CAR asserted
-	 */
-	return TIOCM_DSR | TIOCM_CAR;
+	struct max310x_port *s = dev_get_drvdata(port->dev);
+	unsigned int mctrl = TIOCM_DSR | TIOCM_CAR;
+
+	if (s->gpio_used != 1) {
+		pr_err("%s: returning default, GPIOs not set up yet\n", __func__);
+		return mctrl;;
+	}
+
+	if (port->line != 0) {
+		/* DCD and DSR are not wired and CTS/RTS is handled automatically
+		 * so just indicate DSR and CAR asserted for all ports other than port 0
+		 */
+		return mctrl;
+	} else {
+		/* for port 0 read gpios and report state */
+		if (gpio_get_value(DSR))
+			mctrl &= ~TIOCM_DSR;
+		if (gpio_get_value(DCD))
+			mctrl &= ~TIOCM_CAR;
+		if (!gpio_get_value(RI))
+			mctrl |= TIOCM_RNG;
+		return mctrl;
+	}
 }
 
 static void max310x_md_proc(struct work_struct *ws)
 {
 	struct max310x_one *one = container_of(ws, struct max310x_one, md_work);
+	struct max310x_port *s = dev_get_drvdata(one->port.dev);
 
 	max310x_port_update(&one->port, MAX310X_MODE2_REG,
 			    MAX310X_MODE2_LOOPBACK_BIT,
 			    (one->port.mctrl & TIOCM_LOOP) ?
 			    MAX310X_MODE2_LOOPBACK_BIT : 0);
+
+	if (s->gpio_used != 1) {
+		pr_err("%s: returning without setting mctrl=%x, GPIOs not set up yet\n", __func__, one->port.mctrl);
+		return;
+	}
+
+	if (one->port.line == 0) {
+		/* handle DTR for port 0 */
+		gpio_set_value_cansleep(DTR, !(one->port.mctrl & TIOCM_DTR));
+	}
+
+
 }
 
 static void max310x_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct max310x_one *one = container_of(port, struct max310x_one, port);
+
+	pr_err("%s: entry: %x\n", __func__, mctrl);
 
 	schedule_work(&one->md_work);
 }
@@ -1248,6 +1287,35 @@ static int max310x_probe(struct device *dev, struct max310x_devtype *devtype,
 
 out:
 	/* end hack */
+
+	/* if device on chip select 0, then set up gpios for modem control on uart 0 */
+	/* use gpio base = 480 to detect whether this is the device on chip select 0 */
+
+	if (s->gpio.base == 480) {
+		err = gpio_request(DTR, "DTR");
+		if (err < 0) {
+			pr_err("%s: Unable to request DTR GPIO:%d, err:%d\n",
+					__func__, DTR, err);
+		} else gpio_direction_output(DTR, 1);
+
+		err = gpio_request(DSR, "DSR");
+		if (err < 0) {
+			pr_err("%s: Unable to request DSR GPIO:%d, err:%d\n",
+					__func__, DSR, err);
+		} else gpio_direction_input(DSR);
+
+		err = gpio_request(DCD, "DCD");
+		if (err < 0) {
+			pr_err("%s: Unable to request DCD GPIO:%d, err:%d\n",
+					__func__, DCD, err);
+		} else gpio_direction_input(DCD);
+
+		err = gpio_request(RI, "RI");
+		if (err < 0) {
+			pr_err("%s: Unable to request RI GPIO:%d, err:%d\n",
+					__func__, RI, err);
+		} else gpio_direction_input(RI);
+	}
 
 	/* Setup interrupt */
 	ret = devm_request_threaded_irq(dev, irq, NULL, max310x_ist,
