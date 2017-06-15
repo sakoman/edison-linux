@@ -18,7 +18,7 @@ static struct ds1307_platform_data ds1307_pdata = {
 	.trickle_charger_setup	= DS1307_TRICKLE_CHARGER_250_OHM,
 };
 
-void __init *emc1403_platform_data(void *info)
+void __init *ds1307_platform_data(void *info)
 {
 	struct i2c_board_info *i2c_info = info;
 

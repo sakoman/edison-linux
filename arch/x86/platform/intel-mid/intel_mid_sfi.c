@@ -67,6 +67,15 @@ static struct sfi_device_table_entry max310x_cs1_entry = {
 	.name = "max14830",
 };
 
+static struct sfi_device_table_entry ds1307_entry = {
+	.type = SFI_DEV_TYPE_I2C,
+	.host_num = 1, /* bus number */
+	.addr = 0x68, /* device address */
+	.irq = 14, /* actual irq to be filled in later */
+	.max_freq = 400000,
+	.name = "ds3231",
+};
+
 static struct platform_device *ipc_devs[MAX_IPCDEVS];
 static struct spi_board_info *spi_devs[MAX_SCU_SPI];
 static struct i2c_board_info *i2c_devs[MAX_SCU_I2C];
@@ -571,6 +580,17 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 		pr_err("%s: max310x cs1 sfi hack failed \n", __func__);
 
 	sfi_handle_spi_dev(&max310x_cs1_entry, dev);
+
+	/* end hack */
+
+	/* hack in ds1307 sfi entry */
+
+	dev = get_device_id(ds1307_entry.type, ds1307_entry.name);
+
+	if ((dev == NULL) || (dev->get_platform_data == NULL))
+		pr_err("%s: ds1307 sfi hack failed \n", __func__);
+
+	sfi_handle_i2c_dev(&ds1307_entry, dev);
 
 	/* end hack */
 
