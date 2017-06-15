@@ -77,6 +77,7 @@
 #include "device_libs/platform_pcal9555a.h"
 
 #include "device_libs/platform_wm8994.h"
+#include "device_libs/platform_ds1307.h"
 
 /*
  * SPI devices
@@ -124,6 +125,7 @@ struct devs_id __initconst device_ids[] = {
 					&ipc_device_handler},
 	{"mpu3050", SFI_DEV_TYPE_I2C, 1, &mpu3050_platform_data, NULL},
 	{"i2c_disp_brig", SFI_DEV_TYPE_I2C, 0, &tc35876x_platform_data, NULL},
+	{"ds3231", SFI_DEV_TYPE_I2C, 0, &ds1307_platform_data, NULL},
 
 	/* MSIC subdevices */
 	{"msic_adc", SFI_DEV_TYPE_IPC, 1, &msic_adc_platform_data,
