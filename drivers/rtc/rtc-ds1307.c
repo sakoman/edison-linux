@@ -19,6 +19,7 @@
 #include <linux/rtc.h>
 #include <linux/bcd.h>
 #include <linux/rtc/ds1307.h>
+#include <linux/gpio.h>
 
 /*
  * We can't determine type by probing, but if we expect pre-Linux code
@@ -935,6 +936,39 @@ read_rtc:
 			"unable to register the class device\n");
 		goto exit_free;
 	}
+
+	/* add hack to convert gpio number to system irq number using gpio_to_irq */
+	if (gpio_is_valid(client->irq)) {
+		/* Request gpio */
+		err = gpio_request(client->irq, "ds1307 irq");
+		if (err < 0) {
+			pr_err("%s: Unable to request GPIO:%d, err:%d\n",
+					__func__, client->irq, err);
+			goto out;
+		}
+
+		/* set gpio direction */
+		err = gpio_direction_input(client->irq);
+		if (err < 0) {
+			pr_err("%s: Unable to set GPIO:%d direction, err:%d\n",
+			 __func__, client->irq, err);
+			goto out;
+		}
+
+		/* convert gpio to irq */
+		client->irq = gpio_to_irq(client->irq);
+		if (client->irq < 0) {
+			pr_err("%s: Error gpio_to_irq:%d\n", __func__,
+					client->irq);
+			goto out;
+		}
+		pr_err("%s: gpio_to_irq result:%d\n", __func__,
+				client->irq);
+	} else
+		pr_err("%s: GPIO%d not valid\n",__func__, client->irq);
+
+out:
+	/* end hack */
 
 	if (want_irq) {
 		err = request_irq(client->irq, ds1307_irq, IRQF_SHARED,
