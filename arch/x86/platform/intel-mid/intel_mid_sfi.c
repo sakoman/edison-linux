@@ -76,6 +76,14 @@ static struct sfi_device_table_entry ds1307_entry = {
 	.name = "ds3231",
 };
 
+static struct sfi_device_table_entry tca6507_entry = {
+	.type = SFI_DEV_TYPE_I2C,
+	.host_num = 1, /* bus number */
+	.addr = 0x45, /* device address */
+	.max_freq = 400000,
+	.name = "tca6507",
+};
+
 static struct platform_device *ipc_devs[MAX_IPCDEVS];
 static struct spi_board_info *spi_devs[MAX_SCU_SPI];
 static struct i2c_board_info *i2c_devs[MAX_SCU_I2C];
@@ -591,6 +599,17 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 		pr_err("%s: ds1307 sfi hack failed \n", __func__);
 
 	sfi_handle_i2c_dev(&ds1307_entry, dev);
+
+	/* end hack */
+
+	/* hack in tca6507 sfi entry */
+
+	dev = get_device_id(tca6507_entry.type, tca6507_entry.name);
+
+	if ((dev == NULL) || (dev->get_platform_data == NULL))
+		pr_err("%s: tca6507 sfi hack failed \n", __func__);
+
+	sfi_handle_i2c_dev(&tca6507_entry, dev);
 
 	/* end hack */
 
