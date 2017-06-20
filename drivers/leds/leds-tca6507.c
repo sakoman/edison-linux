@@ -736,6 +736,30 @@ static int tca6507_probe(struct i2c_client *client,
 	int err;
 	int i = 0;
 
+	int led_enable_gpio = 49;
+
+	if (gpio_is_valid(led_enable_gpio)) {
+		/* Request gpio */
+		err = gpio_request(led_enable_gpio, "tca6507 led enable");
+		if (err < 0) {
+			pr_err("%s: Unable to request GPIO:%d, err:%d\n",
+					__func__, led_enable_gpio, err);
+			goto out;
+		}
+
+		gpio_export(led_enable_gpio, 0);
+
+		/* set gpio direction and pull high */
+		err = gpio_direction_output(led_enable_gpio, 1);
+		if (err < 0) {
+			pr_err("%s: Unable to set GPIO:%d direction, err:%d\n",
+			 __func__, led_enable_gpio, err);
+			goto out;
+		}
+	}
+
+out:
+
 	adapter = to_i2c_adapter(client->dev.parent);
 	pdata = client->dev.platform_data;
 
