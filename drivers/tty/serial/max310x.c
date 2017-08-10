@@ -846,8 +846,6 @@ static void max310x_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct max310x_one *one = container_of(port, struct max310x_one, port);
 
-	pr_err("%s: entry: %x\n", __func__, mctrl);
-
 	schedule_work(&one->md_work);
 }
 
