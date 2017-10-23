@@ -21,6 +21,7 @@
 #include <linux/skbuff.h>
 #include <linux/gpio.h>
 #include <linux/gpio_keys.h>
+#include <linux/pps-gpio.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
 #include <linux/irq.h>
@@ -493,6 +494,22 @@ struct devs_id __init *get_device_id(u8 type, char *name)
 	return NULL;
 }
 
+static struct pps_gpio_platform_data pps_gpio_info = {
+        .assert_falling_edge = false,
+        .capture_clear= false,
+        .gpio_pin=43,
+        .gpio_label="pps",
+};
+
+
+static struct platform_device pps_gpio_device = {
+        .name = "pps-gpio",
+        .id = -1,
+        .dev = {
+                .platform_data = &pps_gpio_info
+        },
+};
+
 static int __init sfi_parse_devs(struct sfi_table_header *table)
 {
 	struct sfi_table_simple *sb;
@@ -610,6 +627,13 @@ static int __init sfi_parse_devs(struct sfi_table_header *table)
 		pr_err("%s: tca6507 sfi hack failed \n", __func__);
 
 	sfi_handle_i2c_dev(&tca6507_entry, dev);
+
+	/* end hack */
+
+	/* pps-gpio hack */
+
+        if (platform_device_register(&pps_gpio_device))
+                pr_err("Could not register PPS_GPIO device");
 
 	/* end hack */
 
