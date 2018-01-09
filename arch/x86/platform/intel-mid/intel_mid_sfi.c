@@ -72,7 +72,7 @@ static struct sfi_device_table_entry ds1307_entry = {
 	.type = SFI_DEV_TYPE_I2C,
 	.host_num = 1, /* bus number */
 	.addr = 0x68, /* device address */
-	.irq = 14, /* actual irq to be filled in later */
+	.irq = 15, /* actual irq to be filled in later */
 	.max_freq = 400000,
 	.name = "ds3231",
 };
