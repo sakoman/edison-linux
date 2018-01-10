@@ -979,7 +979,7 @@ static int max310x_startup(struct uart_port *port)
 	/* Hack: If line 0 (ttyMAX0) invert RX polarity with RxInv to fix hardware bug */
 	if (line == 0){
 		max310x_port_update(port, MAX310X_IRDA_REG,
-				MAX310X_IRDA_RXINV_BIT, 1);
+				MAX310X_IRDA_RXINV_BIT, MAX310X_IRDA_RXINV_BIT);
 	}
 
 	return 0;
