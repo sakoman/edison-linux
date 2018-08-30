@@ -976,6 +976,10 @@ static int max310x_startup(struct uart_port *port)
 	val = MAX310X_IRQ_RXEMPTY_BIT | MAX310X_IRQ_TXEMPTY_BIT;
 	max310x_port_write(port, MAX310X_IRQEN_REG, val | MAX310X_IRQ_CTS_BIT);
 
+	/* Decrease the RXFIFO trigger level to avoid overflow */
+	max310x_port_write(port, MAX310X_FIFOTRIGLVL_REG,
+			MAX310X_FIFOTRIGLVL_TX(120) | MAX310X_FIFOTRIGLVL_RX(64));
+
 	/* Hack: If line 0 (ttyMAX0) invert RX polarity with RxInv to fix hardware bug */
 	if (line == 0){
 		max310x_port_update(port, MAX310X_IRDA_REG,
